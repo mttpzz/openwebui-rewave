@@ -32,7 +32,7 @@ docker compose up -d
 
 > `.env` holds **production secrets** (provider API keys, Keycloak/DB passwords, mail credentials) and is gitignored. All config is interpolated from `.env` into `docker-compose.yml`.
 
-> The contents of `llm_wiki/` (proprietary KB + third-party PDF sources) are excluded from the repo. Only `llm_wiki/CLAUDE.md`, which documents the vault schema and workflow, is kept.
+> The entire `llm_wiki/` directory (proprietary KB, third-party PDF sources, and the vault's own `CLAUDE.md`) is excluded from the repo — the vault is recreated per deployment.
 
 ## Common operations
 

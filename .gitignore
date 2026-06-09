@@ -1,7 +1,5 @@
 # llm_wiki: content excluded (proprietary KB + copyrighted third-party PDF sources)
-# Keep only the CLAUDE.md skeleton describing the vault schema/workflow
 llm_wiki/*
-!llm_wiki/CLAUDE.md
 
 # Claude Code local settings
 .claude/settings.local.json
