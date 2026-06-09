@@ -1,5 +1,7 @@
-# llm_wiki: content excluded (proprietary KB + copyrighted third-party PDF sources)
+# llm_wiki: keep the folder (via its README) but exclude all its content
+# (proprietary KB + copyrighted third-party PDF sources; vault recreated per deploy)
 llm_wiki/*
+!llm_wiki/README.md
 
 # Claude Code local settings
 .claude/settings.local.json

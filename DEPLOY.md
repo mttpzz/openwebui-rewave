@@ -26,9 +26,10 @@ git clone https://github.com/mttpzz/openwebui-rewave.git
 cd openwebui-rewave
 ```
 
-Then **manually copy in the gitignored files** (USB / network share). The whole
-`llm_wiki/` directory is excluded from the repo (vault recreated per deploy), so
-a fresh clone has no `llm_wiki/` at all — copy the entire folder:
+Then **manually copy in the gitignored files** (USB / network share). The `llm_wiki/`
+directory ships with the repo as an empty folder (only its `README.md`); all
+other content is excluded (vault recreated per deploy), so a fresh clone has an
+empty `llm_wiki/` — copy its content in:
 
 - `.env`  → repo root
 - the entire `llm_wiki/` directory (`raw/`, `wiki/`, `CLAUDE.md`, `index.md`, `log.md`) → repo root
