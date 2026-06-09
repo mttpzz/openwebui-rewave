@@ -1,0 +1,28 @@
+{
+    auto_https disable_redirects        # active on Windows (port 80 used by other apps); remove on Ubuntu to enable HTTP→HTTPS auto-redirect
+}
+
+oi.rewave.local {
+    tls internal
+    reverse_proxy openwebui:8080
+}
+
+litellm.rewave.local {
+    tls internal
+    reverse_proxy litellm:4000
+}
+
+keycloak.rewave.local {
+    tls internal
+    reverse_proxy keycloak:8080
+}
+
+n8n.rewave.local {
+    tls internal
+    reverse_proxy n8n:5678 {
+        header_up Host {host}
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-Host {host}
+        header_up X-Real-IP {remote_host}
+    }
+}

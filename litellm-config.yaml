@@ -1,0 +1,35 @@
+# litellm-config.yaml
+# Documentation: https://docs.litellm.ai/docs/proxy/configs
+
+model_list:
+  - model_name: claude-sonnet          # name seen by Open WebUI
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+      cache_control_injection_points:
+        - location: message
+          role: system
+
+  # - model_name: gpt-4o
+  #   litellm_params:
+  #     model: openai/gpt-5-mini
+  #     api_key: os.environ/OPENAI_API_KEY
+
+    # Ollama runs on the Windows host (outside Docker)
+  # - model_name: llama3.1
+  #   litellm_params:
+  #     model: ollama/llama3.1:8b
+  #     api_base: http://host.docker.internal:11434
+
+
+litellm_settings:
+  # Automatic fallback if a provider does not respond
+  num_retries: 3
+  request_timeout: 300
+
+  # Logging to Langfuse (if env vars are set)
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]
+
+router_settings:
+  routing_strategy: cost-based-routing     # or: latency-based-routing, least-busy
