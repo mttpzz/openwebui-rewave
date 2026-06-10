@@ -19,7 +19,7 @@ logs/*
 data/*
 
 # caddy certificates
-caddy-root.crt*
+*.crt*
 
 
 # Byte-compiled / optimized / DLL files

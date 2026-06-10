@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: litellm
       POSTGRES_USER: litellm
-      POSTGRES_PASSWORD: ${LITELLM_DB_PASSWORD:-litellm}
+      POSTGRES_PASSWORD: ${LITELLM_DB_PASSWORD}
     volumes:
       - litellm-db-data:/var/lib/postgresql/data
     networks:
@@ -22,7 +22,7 @@ services:
     volumes:
       - ./litellm-config.yaml:/app/config.yaml:ro
     environment:
-      DATABASE_URL: postgresql://litellm:${LITELLM_DB_PASSWORD:-litellm}@litellm-db:5432/litellm
+      DATABASE_URL: postgresql://litellm:${LITELLM_DB_PASSWORD}@litellm-db:5432/litellm
       STORE_MODEL_IN_DB: "true"
       # API keys for LLM providers
       OPENAI_API_KEY:    ${OPENAI_API_KEY}
@@ -95,7 +95,7 @@ services:
       PLAYWRIGHT_WS_URI: "ws://playwright:3000"
 
       # security
-      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-change-me-in-production}
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
       WEBUI_AUTH: "true"
 
       # OAuth/SSO — Keycloak
