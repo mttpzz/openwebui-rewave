@@ -14,11 +14,11 @@ services:
       - openwebui-network
 
   litellm:
-    image: ghcr.io/berriai/litellm:main-latest
+    image: ghcr.io/berriai/litellm:v1.88.1
     container_name: litellm
     restart: unless-stopped
-    ports:
-      - "4000:4000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./litellm-config.yaml:/app/config.yaml:ro
     environment:
@@ -50,15 +50,13 @@ services:
     restart: unless-stopped
     command: /bin/sh -c "npx -y playwright@1.58.0 run-server --port 3000 --host 0.0.0.0"
     networks:
-      - openwebui-network
+      - playwright-network
 
   # Open WebUI — frontend chat
   openwebui:
-    image: ghcr.io/open-webui/open-webui:main
+    image: ghcr.io/open-webui/open-webui:v0.9.6
     container_name: openwebui
     restart: unless-stopped
-    ports:
-      - "3000:8080"
     volumes:
       - openwebui-data:/app/backend/data
       - ./caddy/caddy-root.crt:/usr/local/share/ca-certificates/caddy-root.crt:ro
@@ -93,14 +91,12 @@ services:
       BYPASS_WEB_SEARCH_WEB_LOADER: "false"
       RAG_WEB_SEARCH_TRUST_ENV: "true"
       PLAYWRIGHT_WS_URI: "ws://playwright:3000"
-
       # security
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
       WEBUI_AUTH: "true"
-
       # OAuth/SSO — Keycloak
       ENABLE_OAUTH_SIGNUP: "true"
-      OAUTH_MERGE_ACCOUNTS_BY_EMAIL: "true"
+      OAUTH_MERGE_ACCOUNTS_BY_EMAIL: "false"
       OAUTH_CLIENT_ID:     ${OAUTH_CLIENT_ID}
       OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET}
       OPENID_PROVIDER_URL: ${OPENID_PROVIDER_URL}
@@ -116,7 +112,6 @@ services:
       OAUTH_ADMIN_ROLES: "admin"
       ENABLE_SIGNUP: "false"
       ENABLE_LOGIN_FORM: "false"
-
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -128,6 +123,7 @@ services:
         condition: service_started
     networks:
       - openwebui-network
+      - playwright-network
 
 
   # Keycloak — Identity Provider (SSO)
@@ -145,12 +141,10 @@ services:
       - openwebui-network
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.0
+    image: quay.io/keycloak/keycloak:26.6.3
     container_name: keycloak
     restart: unless-stopped
-    command: start-dev
-    ports:
-      - "8081:8080"
+    command: start
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
@@ -182,7 +176,7 @@ services:
       - openwebui-network
 
   n8n:
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:2.25.7
     container_name: n8n
     restart: unless-stopped
     environment:
@@ -198,12 +192,16 @@ services:
       N8N_PORT: 5678
       WEBHOOK_URL: https://n8n.rewave.local/
       N8N_PROXY_HOPS: 1
+      N8N_SECURE_COOKIE: "true"
       GENERIC_TIMEZONE: Europe/Rome
       TZ: Europe/Rome
       # trust Caddy CA for calls to other internal services
       NODE_EXTRA_CA_CERTS: /opt/custom-certs/caddy-root.crt
       GMAIL_ACCOUNTS: ${GMAIL_ACCOUNTS}
       NODE_FUNCTION_ALLOW_EXTERNAL: "imap,mailparser"
+      # kept false on purpose: mail-digest Code node reads GMAIL_ACCOUNTS from env;
+      # blocking would force secrets into workflow JSON (plaintext in DB).
+      # Single-editor instance -> accepted risk. Revisit if more n8n users are added.
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       MAIL_TOPICS: ${MAIL_TOPICS}
     volumes:
@@ -217,7 +215,7 @@ services:
 
   # Reverse proxy TLS
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2.11.4-alpine
     container_name: caddy-oi
     restart: unless-stopped
     ports:
@@ -244,6 +242,8 @@ services:
 networks:
   openwebui-network:
     driver: bridge
+  playwright-network:
+    driver: bridge
 
 volumes:
   litellm-db-data:
@@ -253,4 +253,3 @@ volumes:
   caddy-config:
   n8n-data:
   n8n-db-data:
-

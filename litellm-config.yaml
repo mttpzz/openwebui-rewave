@@ -16,10 +16,10 @@ model_list:
   #     api_key: os.environ/OPENAI_API_KEY
 
     # Ollama runs on the Windows host (outside Docker)
-  # - model_name: llama3.1
-  #   litellm_params:
-  #     model: ollama/llama3.1:8b
-  #     api_base: http://host.docker.internal:11434
+  - model_name: llama3.1
+    litellm_params:
+      model: ollama/llama3.1:8b
+      api_base: http://host.docker.internal:11434
 
 
 litellm_settings:

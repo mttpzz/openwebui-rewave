@@ -269,6 +269,59 @@ the files only to keep the server self-consistent or to maintain the vault there
 
 ---
 
+## Phase 14 — (optional) Local models via Ollama on the server
+
+Ollama installed via the official script runs as a systemd service bound to
+`127.0.0.1:11434` — safe by default, but unreachable from containers. Do **not**
+"fix" it with a plain `OLLAMA_HOST=0.0.0.0`: that exposes an unauthenticated
+LLM API to the whole LAN. Pick one of these instead:
+
+39. **Option A (preferred) — bind to the Docker bridge only.** Containers reach
+    the host at `host.docker.internal` → `172.17.0.1` (docker0), so listen there
+    and nowhere else:
+    ```bash
+    sudo systemctl edit ollama
+    ```
+    ```ini
+    [Unit]
+    # docker0 must exist before Ollama binds to it
+    After=docker.service
+    Wants=docker.service
+
+    [Service]
+    Environment="OLLAMA_HOST=172.17.0.1:11434"
+    ```
+    ```bash
+    sudo systemctl daemon-reload && sudo systemctl restart ollama
+    ```
+
+40. **Option B — bind everywhere, firewall the LAN out.** Only if ufw is active
+    (`sudo ufw status` → active, default deny incoming):
+    ```bash
+    sudo systemctl edit ollama   # [Service] Environment="OLLAMA_HOST=0.0.0.0:11434"
+    sudo ufw allow from 172.16.0.0/12 to any port 11434 proto tcp
+    sudo systemctl restart ollama
+    ```
+
+41. The `litellm` service has no `extra_hosts` in `docker-compose.yml` (only
+    `openwebui` does), so `host.docker.internal` does not resolve from it. Add:
+    ```yaml
+    # docker-compose.yml → litellm service
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ```
+
+42. Uncomment the `llama3.1` block in `litellm-config.yaml`, then
+    `docker compose up -d litellm`.
+
+43. Verify reachability from the container, and that the LAN is locked out:
+    ```bash
+    docker exec litellm python -c "import urllib.request; print(urllib.request.urlopen('http://host.docker.internal:11434').read())"   # → b'Ollama is running'
+    # from another machine on the LAN: curl http://<server>:11434  → must time out / be refused
+    ```
+
+---
+
 ## Operations cheatsheet
 
 ```bash
