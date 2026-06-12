@@ -10,12 +10,7 @@ model_list:
         - location: message
           role: system
 
-  # - model_name: gpt-4o
-  #   litellm_params:
-  #     model: openai/gpt-5-mini
-  #     api_key: os.environ/OPENAI_API_KEY
-
-    # Ollama runs on the Windows host (outside Docker)
+  # Ollama runs on the Windows host (outside Docker)
   - model_name: llama3.1
     litellm_params:
       model: ollama/llama3.1:8b

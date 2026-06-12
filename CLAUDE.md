@@ -13,10 +13,11 @@ The whole product is configured through `docker-compose.yml` + `.env`. There is 
 Single Compose network (`openwebui-network`). Services:
 
 - **openwebui** — chat frontend. Talks to LLMs only through LiteLLM (`OPENAI_API_BASE_URL: http://litellm:4000/v1`); Ollama API disabled. Exposes a single model `rewave-ai` to users (`DEFAULT_MODELS`). Auth is SSO-only (login form + signup disabled, Keycloak required).
-- **litellm** (+ **litellm-db** postgres) — unified proxy for all model providers. Config in `litellm-config.yaml`. Maps friendly names (`claude-sonnet`, `gpt-4o`, `llama3.1`) to real provider models, holds provider API keys, does cost-based routing, retries, and Langfuse logging. Ollama models route to the **host** Windows machine via `host.docker.internal:11434` (Ollama runs outside Docker).
+- **litellm** (+ **litellm-db** postgres) — unified proxy for all model providers. Config in `litellm-config.yaml`. Maps friendly names (`claude-sonnet`, `llama3.1`) to real provider models, holds provider API keys, does cost-based routing, retries, and Langfuse logging. `llama3.1` (Ollama) routes to the **host** machine via `host.docker.internal:11434` (Ollama runs outside Docker) and is kept **admin-only** in Open WebUI.
 - **keycloak** (+ **keycloak-db** postgres) — identity provider for SSO. Realm `openwebui-rewave`, client `openwebui`. Roles from `realm_access.roles` map to Open WebUI user/admin.
-- **n8n** (+ **n8n-db** postgres) — workflow automation (email ↔ chat integrations). Reads mail accounts/topics from env.
+- **n8n** (+ **n8n-db** postgres) — workflow automation (email ↔ chat). Runs for admin testing at `n8n.rewave.local`; the `send_email`/`mail_digest` chat tools are **admin-only** (not attached to `rewave-ai`). Reads mail accounts/topics from env.
 - **playwright** — headless browser backend for Open WebUI Web Search + web page loading (fallback when answer not in the wiki).
+- **docling** — document text extraction (PDF, Office, scanned PDFs with Italian OCR) feeding Open WebUI in-chat file upload and Knowledge Bases (RAG). CPU image, self-hosted, local-only.
 - **caddy** — TLS reverse proxy. Terminates HTTPS for all `*.rewave.local` hostnames using an internal CA.
 
 ### Networking / TLS
@@ -50,6 +51,14 @@ pwsh -File .\scripts\refresh_wiki.ps1 -SkipBundle
 - `refresh_wiki.ps1` GETs model `rewave-ai`, replaces the text between `=====BEGIN WIKI=====` / `=====END WIKI=====` markers in its system prompt with the fresh bundle, and POSTs it back. Both scripts auto-load `.env` from repo root for `OPENWEBUI_URL` / `OPENWEBUI_API_KEY` / `OPENWEBUI_MODEL_ID`.
 
 If the bundle outgrows Sonnet's context, switch the `claude-sonnet` mapping in `litellm-config.yaml` to an Opus 1M-context model.
+
+## Documents, Knowledge Bases & prompt presets
+
+Beyond the full-context wiki, Open WebUI also does conventional RAG for user content:
+
+- **In-chat upload** and **Knowledge Bases** ("Conoscenza") extract text via the **docling** service and index it with a local multilingual (Italian) embedding model; hybrid search (BM25 + vector) is on. Config is env on the `openwebui` service in `docker-compose.yml` (`CONTENT_EXTRACTION_ENGINE`, `DOCLING_SERVER_URL`, `RAG_EMBEDDING_MODEL`, `RAG_TOP_K`, `ENABLE_RAG_HYBRID_SEARCH`, `USER_PERMISSIONS_WORKSPACE_KNOWLEDGE_*`). These are **PersistentConfig**: env seeds a fresh DB only; change them in the Admin UI afterwards.
+- **Prompt presets** are shared `/command` prompts (public). They are DB rows, not env-seeded — create/update them with `scripts/seed_prompts.ps1` (idempotent; same `.env` auto-load as `refresh_wiki.ps1`).
+- Full Ubuntu procedure: `DEPLOY.md`. End-user guide (Italian): `GUIDA_UTENTI.md`.
 
 ## Common operations
 

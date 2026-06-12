@@ -24,8 +24,7 @@ services:
     environment:
       DATABASE_URL: postgresql://litellm:${LITELLM_DB_PASSWORD}@litellm-db:5432/litellm
       STORE_MODEL_IN_DB: "true"
-      # API keys for LLM providers
-      OPENAI_API_KEY:    ${OPENAI_API_KEY}
+      # API key for LLM provider (Anthropic)
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       # Master key for litellm
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
@@ -51,6 +50,15 @@ services:
     command: /bin/sh -c "npx -y playwright@1.58.0 run-server --port 3000 --host 0.0.0.0"
     networks:
       - playwright-network
+  
+  # Docling — document text extraction (PDF/DOCX/XLSX/PPTX + OCR, tables/layout) for RAG / Knowledge Bases
+  docling:
+    image: quay.io/docling-project/docling-serve-cpu:v1.20.0
+    container_name: docling
+    restart: unless-stopped
+    networks:
+      - openwebui-network
+    
 
   # Open WebUI — frontend chat
   openwebui:
@@ -76,6 +84,8 @@ services:
       # Force single model exposure
       DEFAULT_MODELS: "rewave-ai"
       ENABLE_DIRECT_CONNECTIONS: "false"
+      # Hide the built-in "Arena Model" evaluation entry from the model list
+      ENABLE_EVALUATION_ARENA_MODELS: "false"
 
       # Web Search — fallback when info not in wiki
       ENABLE_RAG_WEB_SEARCH: "true"
@@ -84,16 +94,52 @@ services:
       RAG_WEB_SEARCH_RESULT_COUNT: "5"
       RAG_WEB_SEARCH_CONCURRENT_REQUESTS: "10"
       ENABLE_SEARCH_QUERY_GENERATION: "true"
-      # # Web loader — content extraction from found URLs
+      
+      # Web loader — content extraction from found URLs
       RAG_WEB_LOADER_ENGINE: "playwright"
       RAG_WEB_SEARCH_DOMAIN_FILTER_LIST: ""
       BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL: "true"
       BYPASS_WEB_SEARCH_WEB_LOADER: "false"
       RAG_WEB_SEARCH_TRUST_ENV: "true"
       PLAYWRIGHT_WS_URI: "ws://playwright:3000"
+      
+      # Document extraction (Knowledge Bases + in-chat file upload) — Docling
+      CONTENT_EXTRACTION_ENGINE: "docling"
+      DOCLING_SERVER_URL: "http://docling:5001"   # verify docling-serve port (default 5001)
+      # Multilingual embedding for Italian docs — local, CPU, downloaded on first use
+      RAG_EMBEDDING_ENGINE: ""
+      RAG_EMBEDDING_MODEL: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+      # Upload limits
+      RAG_FILE_MAX_SIZE: "50"     # MB per file
+      RAG_FILE_MAX_COUNT: "10"    # files per chat
+      # RAG retrieval tuning — also set in Admin UI (env only seeds a fresh DB)
+      RAG_TOP_K: "5"
+      ENABLE_RAG_HYBRID_SEARCH: "true"
+      RAG_TOP_K_RERANKER: "5"
+      RAG_HYBRID_BM25_WEIGHT: "0.5"
+      # Workspace — all users can create Knowledge and share it with groups
+      USER_PERMISSIONS_WORKSPACE_KNOWLEDGE_ACCESS: "true"
+      USER_PERMISSIONS_WORKSPACE_KNOWLEDGE_ALLOW_SHARING: "true"
+      USER_PERMISSIONS_WORKSPACE_KNOWLEDGE_ALLOW_PUBLIC_SHARING: "false"
+      
+      # Hide the chat "Controls" panel from base users (no system prompt / params / valves override)
+      USER_PERMISSIONS_CHAT_CONTROLS: "false"
+      USER_PERMISSIONS_CHAT_SYSTEM_PROMPT: "false"
+      USER_PERMISSIONS_CHAT_PARAMS: "false"
+      USER_PERMISSIONS_CHAT_VALVES: "false"
+      # Lock down features/actions not used by base users (off at model level too)
+      USER_PERMISSIONS_FEATURES_IMAGE_GENERATION: "false"
+      USER_PERMISSIONS_FEATURES_CODE_INTERPRETER: "false"
+      USER_PERMISSIONS_FEATURES_CALENDAR: "false"
+      USER_PERMISSIONS_FEATURES_MEMORIES: "false"
+      USER_PERMISSIONS_CHAT_MULTIPLE_MODELS: "false"   # users only have rewave-ai
+      USER_PERMISSIONS_CHAT_SHARE: "false"             # no public shareable chat links
+      USER_PERMISSIONS_CHAT_EXPORT: "false"
+
       # security
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
       WEBUI_AUTH: "true"
+      
       # OAuth/SSO — Keycloak
       ENABLE_OAUTH_SIGNUP: "true"
       OAUTH_MERGE_ACCOUNTS_BY_EMAIL: "false"
@@ -105,6 +151,7 @@ services:
       OAUTH_SCOPES: "openid email profile"
       WEBUI_URL: "https://oi.rewave.local"
       WEBUI_AUTH_SIGNOUT_REDIRECT_URL: "https://oi.rewave.local/auth"
+      
       # map roles from Keycloak token to Open WebUI roles (optional)
       ENABLE_OAUTH_ROLE_MANAGEMENT: "true"
       OAUTH_ROLES_CLAIM: "realm_access.roles"
@@ -120,6 +167,8 @@ services:
       keycloak:
         condition: service_started
       playwright:
+        condition: service_started
+      docling:
         condition: service_started
     networks:
       - openwebui-network
