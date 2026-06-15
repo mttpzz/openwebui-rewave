@@ -106,6 +106,13 @@ services:
       # Hide the built-in "Arena Model" evaluation entry from the model list
       ENABLE_EVALUATION_ARENA_MODELS: "false"
 
+      # New-chat prompt suggestion cards (PersistentConfig: seeds a fresh DB only)
+      DEFAULT_PROMPT_SUGGESTIONS: >
+        [
+          {"title": ["Cosa sai fare?", "scopri le funzioni"], "content": "Cosa sai fare? Elenca in modo sintetico come puoi aiutarmi nel lavoro quotidiano in Rewave."},
+          {"title": ["Genera presentazione", "esempio presentazione"], "content": "/presentazione Genera una presentazione di esempio in 4 slide che illustra i servizi di Rewave Srl."}
+        ]
+
       # Web Search — fallback when info not in wiki
       ENABLE_RAG_WEB_SEARCH: "true"
       ENABLE_WEB_SEARCH: "true"

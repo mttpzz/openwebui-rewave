@@ -33,6 +33,7 @@ n8n workflows/credentials, and the Open WebUI tools.
 | `rewave-ai` model + system prompt | Phase 9 + Phase 13 |
 | `llama3.1` visibility = Private | Phase 9 |
 | Prompt presets (`/commands`) | Phase 13 (`seed_prompts.ps1`) |
+| New-chat prompt suggestions ("Suggerito" cards) | Phase 13 (`seed_suggestions.ps1`) |
 | Functions (`Presentazione PDF`) | Phase 13 (`seed_functions.ps1`) |
 | Department **groups** + user→group assignment | see below |
 | Knowledge Base contents | users re-upload |
@@ -406,6 +407,16 @@ the Ubuntu n8n uses the **same `N8N_ENCRYPTION_KEY`** (same `.env`).
     ```
     Idempotent: re-run to update the presets or add new ones (edit the `$presets`
     array in the script). Verify in chat: type `/` → the preset menu appears.
+42a. Seed the new-chat prompt suggestion cards (the "Suggerito" cards on an empty
+    chat). The `DEFAULT_PROMPT_SUGGESTIONS` env (Phase 8) only seeds a fresh DB, so
+    on a re-seeded or existing DB set them via the API script (same server API key
+    as step 39):
+    ```powershell
+    pwsh -File .\scripts\seed_suggestions.ps1 -BaseUrl "https://oi.rewave.local" -ApiKey "sk-<server-key>"
+    ```
+    Idempotent: overwrites the whole list via `POST /api/v1/configs/suggestions`
+    (edit the `$suggestions` array in the script). Verify: open a new chat → the
+    cards appear under "Suggerito".
 42b. Install the custom **Functions** (the `Presentazione PDF` filter: after a
     `/presentazione` reply it renders the reveal.js slides to a PDF via the
     playwright container and appends a download link to the message — no button,
@@ -539,8 +550,9 @@ docker compose down                  # stop (named volumes persist)
 
 - After editing `.env` → `docker compose up -d` (re-creates affected services).
 - Wiki updates: re-run the Phase 13 `refresh_wiki.ps1` command.
-- Prompt-preset or Action-function changes: re-run `seed_prompts.ps1` /
-  `seed_functions.ps1` (both idempotent — safe on every redeploy).
+- Prompt-preset, suggestion-card or Action-function changes: re-run
+  `seed_prompts.ps1` / `seed_suggestions.ps1` / `seed_functions.ps1` (all
+  idempotent — safe on every redeploy).
 - If the bundle outgrows Sonnet's context, switch the `claude-sonnet` mapping in
   `litellm-config.yaml` to an Opus 1M-context model, then `restart litellm`.
 ```
