@@ -33,6 +33,7 @@ n8n workflows/credentials, and the Open WebUI tools.
 | `rewave-ai` model + system prompt | Phase 9 + Phase 13 |
 | `llama3.1` visibility = Private | Phase 9 |
 | Prompt presets (`/commands`) | Phase 13 (`seed_prompts.ps1`) |
+| Functions (`Presentazione PDF`) | Phase 13 (`seed_functions.ps1`) |
 | Department **groups** + user→group assignment | see below |
 | Knowledge Base contents | users re-upload |
 | Chats / history | not migrated (per user) |
@@ -273,6 +274,15 @@ a new DB only; on an already-initialized DB change them in the UI instead.
     From env `CONTENT_EXTRACTION_ENGINE=docling`, `DOCLING_SERVER_URL`,
     `RAG_EMBEDDING_MODEL`. Docling extracts PDF / Office / scanned PDFs (OCR,
     RapidOCR default — handles Latin text + numbers well).
+
+> **Vector store = pgvector, not Chroma.** The `openwebui-vector-db` service
+> (`pgvector/pgvector:pg16`) holds all RAG embeddings; Open WebUI uses it via
+> `VECTOR_DB=pgvector` + `PGVECTOR_DB_URL` (password `OWUI_VECTOR_DB_PASSWORD` in
+> `.env`, hex only — must be URL-safe). It scales far past embedded Chroma and is
+> backed up like the other postgres DBs. **Re-index when migrating:** vectors do
+> not transfer between backends (Chroma→pgvector) or across embedding models —
+> existing Knowledge Bases must be re-uploaded. The old Chroma data sits inert in
+> the `openwebui-data` volume and can be purged afterward.
 26. Verify retrieval tuning (same Documents page): Top K = 5, Top K Reranker = 5,
     Hybrid Search ON, Reranking Model **empty**. From env `RAG_TOP_K=5`,
     `ENABLE_RAG_HYBRID_SEARCH=true`, `RAG_TOP_K_RERANKER=5`,
@@ -396,6 +406,20 @@ the Ubuntu n8n uses the **same `N8N_ENCRYPTION_KEY`** (same `.env`).
     ```
     Idempotent: re-run to update the presets or add new ones (edit the `$presets`
     array in the script). Verify in chat: type `/` → the preset menu appears.
+42b. Install the custom **Functions** (the `Presentazione PDF` filter: after a
+    `/presentazione` reply it renders the reveal.js slides to a PDF via the
+    playwright container and appends a download link to the message — no button,
+    fully automatic). DB rows like presets, so push them via the API script (same
+    server API key as step 39):
+    ```powershell
+    pwsh -File .\scripts\seed_functions.ps1 -BaseUrl "https://oi.rewave.local" -ApiKey "sk-<server-key>"
+    ```
+    Idempotent: creates missing functions, refreshes existing code, and sets
+    `is_active` + `is_global` so they apply to `rewave-ai` with no per-model
+    assignment. No restart needed (Open WebUI loads the code live). Verify in chat:
+    run `/presentazione` → under the slides a **📄 Scarica la presentazione (PDF)**
+    link appears within a second or two. (No extra pip deps: the openwebui image
+    already ships `playwright`, the exact version of the `playwright` service.)
 
 ## Phase 14 — (optional) Mirror `llm_wiki/` files onto the server
 
@@ -515,6 +539,8 @@ docker compose down                  # stop (named volumes persist)
 
 - After editing `.env` → `docker compose up -d` (re-creates affected services).
 - Wiki updates: re-run the Phase 13 `refresh_wiki.ps1` command.
+- Prompt-preset or Action-function changes: re-run `seed_prompts.ps1` /
+  `seed_functions.ps1` (both idempotent — safe on every redeploy).
 - If the bundle outgrows Sonnet's context, switch the `claude-sonnet` mapping in
   `litellm-config.yaml` to an Opus 1M-context model, then `restart litellm`.
 ```

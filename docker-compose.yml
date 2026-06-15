@@ -58,7 +58,26 @@ services:
     restart: unless-stopped
     networks:
       - openwebui-network
-    
+
+  # Open WebUI vector store — pgvector (RAG / Knowledge Bases)
+  openwebui-vector-db:
+    image: pgvector/pgvector:pg16
+    container_name: openwebui-vector-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: owui_vectors
+      POSTGRES_USER: owui
+      POSTGRES_PASSWORD: ${OWUI_VECTOR_DB_PASSWORD}
+    volumes:
+      - openwebui-vector-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U owui -d owui_vectors"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - openwebui-network
+
 
   # Open WebUI — frontend chat
   openwebui:
@@ -102,6 +121,10 @@ services:
       BYPASS_WEB_SEARCH_WEB_LOADER: "false"
       RAG_WEB_SEARCH_TRUST_ENV: "true"
       PLAYWRIGHT_WS_URI: "ws://playwright:3000"
+
+      # Vector store — pgvector instead of default embedded Chroma (scales, same postgres ops)
+      VECTOR_DB: "pgvector"
+      PGVECTOR_DB_URL: "postgresql://owui:${OWUI_VECTOR_DB_PASSWORD}@openwebui-vector-db:5432/owui_vectors"
       
       # Document extraction (Knowledge Bases + in-chat file upload) — Docling
       CONTENT_EXTRACTION_ENGINE: "docling"
@@ -170,6 +193,8 @@ services:
         condition: service_started
       docling:
         condition: service_started
+      openwebui-vector-db:
+        condition: service_healthy
     networks:
       - openwebui-network
       - playwright-network
@@ -302,3 +327,4 @@ volumes:
   caddy-config:
   n8n-data:
   n8n-db-data:
+  openwebui-vector-db-data:

@@ -35,6 +35,7 @@ What users get in the chat. Disabled / admin-only features are listed last.
 | Documents in chat (upload) | ✅ active | docling extraction + Italian OCR |
 | Knowledge Bases / RAG (hybrid search) | ✅ active | user-created, shareable to groups |
 | Prompt presets (`/commands`) | ✅ active | public; seeded via `seed_prompts.ps1` |
+| PDF presentations (`/presentazione`) | ✅ active | `esporta_pdf` filter renders the deck to PDF via Playwright; seeded via `seed_functions.ps1` |
 | Web search | ✅ active | DuckDuckGo + Playwright |
 | Vision (image analysis) | ✅ active | model capability |
 | Calculations & dates | ✅ active | `Time & Calculation` builtin tool — reliable math / date arithmetic |
@@ -81,7 +82,7 @@ The assistant draws on company knowledge in three complementary ways:
 | **Knowledge Bases** | A department | No — queried on demand with `#collection` | Department users | Many / volatile / department-specific docs (RAG) |
 
 - **`llm_wiki`** is the core product: an Obsidian-style vault concatenated into one bundle and injected as the system prompt (Anthropic prompt caching keeps it cheap). See the maintenance loop below.
-- **In-chat upload** and **Knowledge Bases** run through **docling** (extraction + Italian OCR) and a local multilingual embedding model — configured via env on the `openwebui` service in `docker-compose.yml`. Changing `RAG_EMBEDDING_MODEL` after documents are indexed requires re-indexing.
+- **In-chat upload** and **Knowledge Bases** run through **docling** (extraction + Italian OCR) and a local multilingual embedding model, with embeddings stored in **pgvector** (`openwebui-vector-db` service) instead of the default embedded Chroma — configured via env on the `openwebui` service in `docker-compose.yml`. Changing `RAG_EMBEDDING_MODEL` (or the vector backend) after documents are indexed requires re-indexing.
 
 End-user guide (Italian): **[GUIDA_UTENTI.md](GUIDA_UTENTI.md)**.
 
@@ -102,7 +103,7 @@ pwsh -File .\scripts\refresh_wiki.ps1 -SkipBundle
 
 ## Prompt presets
 
-Shared `/command` prompts (e.g. `/riassumi`, `/estrai-fattura`, `/scheda-tecnica`)
+Shared `/command` prompts (e.g. `/riassumi`, `/estrai-fattura`, `/traduci-it`)
 are created via the API as **public** (visible to every user). They are DB rows,
 not env-seeded — run the script once per instance (idempotent, edit the `$presets`
 array to change them):
@@ -110,3 +111,17 @@ array to change them):
 ```powershell
 pwsh -File .\scripts\seed_prompts.ps1
 ```
+
+## Custom functions
+
+Python functions in `functions/` are DB rows too — install/update them via the API
+(idempotent; sets `is_active` + `is_global` so they apply to `rewave-ai` with no
+per-model assignment, loaded live without a restart):
+
+```powershell
+pwsh -File .\scripts\seed_functions.ps1
+```
+
+Current: `esporta_pdf` — a global outlet filter that, after a `/presentazione`
+reply, renders the reveal.js slides to a branded landscape PDF (via the Playwright
+service, no extra deps) and replaces the message with a download link.

@@ -18,6 +18,7 @@ Single Compose network (`openwebui-network`). Services:
 - **n8n** (+ **n8n-db** postgres) — workflow automation (email ↔ chat). Runs for admin testing at `n8n.rewave.local`; the `send_email`/`mail_digest` chat tools are **admin-only** (not attached to `rewave-ai`). Reads mail accounts/topics from env.
 - **playwright** — headless browser backend for Open WebUI Web Search + web page loading (fallback when answer not in the wiki).
 - **docling** — document text extraction (PDF, Office, scanned PDFs with Italian OCR) feeding Open WebUI in-chat file upload and Knowledge Bases (RAG). CPU image, self-hosted, local-only.
+- **openwebui-vector-db** — pgvector (`pgvector/pgvector:pg16`) holding the RAG vector store (in-chat upload + Knowledge Base embeddings). Replaces Open WebUI's default embedded Chroma; selected via `VECTOR_DB=pgvector` + `PGVECTOR_DB_URL` on the `openwebui` service. Same postgres ops/backups as the other DBs.
 - **caddy** — TLS reverse proxy. Terminates HTTPS for all `*.rewave.local` hostnames using an internal CA.
 
 ### Networking / TLS
@@ -52,12 +53,13 @@ pwsh -File .\scripts\refresh_wiki.ps1 -SkipBundle
 
 If the bundle outgrows Sonnet's context, switch the `claude-sonnet` mapping in `litellm-config.yaml` to an Opus 1M-context model.
 
-## Documents, Knowledge Bases & prompt presets
+## Documents, Knowledge Bases, prompt presets & functions
 
 Beyond the full-context wiki, Open WebUI also does conventional RAG for user content:
 
-- **In-chat upload** and **Knowledge Bases** ("Conoscenza") extract text via the **docling** service and index it with a local multilingual (Italian) embedding model; hybrid search (BM25 + vector) is on. Config is env on the `openwebui` service in `docker-compose.yml` (`CONTENT_EXTRACTION_ENGINE`, `DOCLING_SERVER_URL`, `RAG_EMBEDDING_MODEL`, `RAG_TOP_K`, `ENABLE_RAG_HYBRID_SEARCH`, `USER_PERMISSIONS_WORKSPACE_KNOWLEDGE_*`). These are **PersistentConfig**: env seeds a fresh DB only; change them in the Admin UI afterwards.
-- **Prompt presets** are shared `/command` prompts (public). They are DB rows, not env-seeded — create/update them with `scripts/seed_prompts.ps1` (idempotent; same `.env` auto-load as `refresh_wiki.ps1`).
+- **In-chat upload** and **Knowledge Bases** ("Conoscenza") extract text via the **docling** service and index it with a local multilingual (Italian) embedding model; hybrid search (BM25 + vector) is on. Config is env on the `openwebui` service in `docker-compose.yml` (`CONTENT_EXTRACTION_ENGINE`, `DOCLING_SERVER_URL`, `RAG_EMBEDDING_MODEL`, `RAG_TOP_K`, `ENABLE_RAG_HYBRID_SEARCH`, `USER_PERMISSIONS_WORKSPACE_KNOWLEDGE_*`). These are **PersistentConfig**: env seeds a fresh DB only; change them in the Admin UI afterwards. Embeddings persist in **pgvector** (`openwebui-vector-db` service, `VECTOR_DB=pgvector`), not the default embedded Chroma. Switching the vector backend or `RAG_EMBEDDING_MODEL` does **not** migrate existing vectors — content must be re-indexed (re-upload).
+- **Prompt presets** are shared `/command` prompts (public). They are DB rows, not env-seeded — create/update them with `scripts/seed_prompts.ps1` (idempotent; same `.env` auto-load as `refresh_wiki.ps1`). Includes `/presentazione`, which has the model emit a self-contained reveal.js HTML deck.
+- **Custom functions** live in `functions/` (Python) and are also DB rows — install/update them with `scripts/seed_functions.ps1` (idempotent: creates/refreshes code, sets `is_active` + `is_global` so they apply to `rewave-ai` without per-model assignment; OWUI loads the code live, no restart). Current: `functions/esporta_pdf.py`, a global **outlet filter** that auto-renders a `/presentazione` reveal.js reply to a branded landscape PDF via the **playwright** service (`ws://playwright:3000`; `playwright` is already in the openwebui image, no extra deps), stores it via the Files API, and **replaces the message** with just the title + a download link. So a redeploy needs only the three seed scripts (`refresh_wiki` + `seed_prompts` + `seed_functions`) — no Admin UI clicks.
 - Full Ubuntu procedure: `DEPLOY.md`. End-user guide (Italian): `GUIDA_UTENTI.md`.
 
 ## Common operations

@@ -42,26 +42,41 @@ $headers = @{ "Authorization" = "Bearer $ApiKey"; "Content-Type" = "application/
 $publicGrant = @(@{ principal_type = "user"; principal_id = "*"; permission = "read" })
 
 # ── Preset definitions (edit freely; commands must be unique) ────────
-# Most prompts end with ": " so the user appends the specific request after
-# inserting the command in chat.
+# Listed in creation order (oldest first), so the source shows which preset was
+# added first and which last. Display order in the chat "/" menu is independent
+# (Open WebUI sorts it by last-updated) and not managed here.
+# Prompts that take pasted text as input end with a label + newline (`n) so the
+# user types the text on a fresh line below the inserted command.
 $presets = @(
     @{ command = "/riassumi";        name = "Riassumi documento";
-       content = "Riassumi il documento o testo seguente in punti chiave (massimo 10 bullet), in italiano. Evidenzia date, importi e scadenze se presenti." }
+       content = "Riassumi il documento o testo seguente in punti chiave (massimo 10 bullet), in italiano. Evidenzia date, importi e scadenze se presenti.`n" }
 
     @{ command = "/estrai-fattura";  name = "Estrai dati fattura";
        content = "Dal documento allegato estrai in una tabella markdown: fornitore, numero fattura, data, imponibile, IVA, totale, scadenza, modalita di pagamento. Se un campo manca scrivi 'n.d.'." }
 
     @{ command = "/traduci-en";      name = "Traduci in inglese";
-       content = "Traduci in inglese il testo seguente, mantenendo tono professionale e terminologia tecnica corretta. Testo: " }
+       content = "Traduci in inglese il testo seguente, mantenendo tono professionale e terminologia tecnica corretta. Testo:`n" }
 
     @{ command = "/normativa";       name = "Spiega normativa";
-       content = "Spiega in modo pratico e sintetico cosa comporta, per un'azienda di cartotecnica, quanto segue. Indica adempimenti concreti e scadenze se rilevanti. Argomento/normativa: " }
+       content = "Spiega in modo pratico e sintetico cosa comporta quanto segue. Indica adempimenti concreti e scadenze se rilevanti. Argomento/normativa:`n" }
 
-    @{ command = "/scheda-tecnica";  name = "Scheda tecnica prodotto";
-       content = "Genera una scheda tecnica per un prodotto cartotecnico con le sezioni: dimensioni, materiale e grammatura, lavorazioni/finiture, imballo, note di produzione. Prodotto: " }
+    @{ command = "/presentazione";   name = "Crea presentazione";
+       content = @'
+Crea una presentazione a partire dai dati seguenti. Produci UN SOLO documento HTML completo e autonomo basato su reveal.js, racchiuso in un blocco di codice fenced con linguaggio html (tre backtick seguiti da html), cosi che Open WebUI lo mostri come Artifact interattivo.
 
-    @{ command = "/punti-azione";    name = "Estrai punti d'azione";
-       content = "Dal testo o verbale seguente estrai i punti d'azione in una tabella markdown con colonne: attivita, responsabile, scadenza. Testo: " }
+Requisiti:
+- Carica reveal.js da CDN jsDelivr: CSS https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css, tema https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/white.css, e script https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js; poi inizializza con: new Reveal().initialize();
+- Struttura: una slide titolo (titolo + sottotitolo + "Rewave Srl" e data), poi una slide per ogni argomento/sezione, infine una slide di chiusura.
+- Ogni slide e un elemento <section> dentro <div class="slides"> dentro <div class="reveal">. Usa bullet brevi (max ~6 per slide), grassetto per i numeri chiave, tabelle HTML solo dove i dati lo richiedono.
+- Lingua italiana, tono professionale e sintetico. Niente testo fuori dal blocco HTML, niente spiegazioni.
+- Palette sobria e leggibile, adatta a un contesto aziendale professionale.
+
+Dati per la presentazione:
+
+'@ }
+
+    @{ command = "/traduci-it";      name = "Traduci in italiano";
+       content = "Traduci in italiano il testo seguente in modo corretto e naturale, qualunque sia la lingua di partenza. Mantieni tono professionale e terminologia tecnica corretta. Testo:`n" }
 )
 
 # ── Fetch existing prompts → command→id map ─────────────────────────
