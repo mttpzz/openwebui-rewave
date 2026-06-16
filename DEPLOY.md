@@ -36,7 +36,7 @@ n8n workflows/credentials, and the Open WebUI tools.
 | New-chat prompt suggestions ("Suggerito" cards) | Phase 13 (`seed_suggestions.ps1`) |
 | Functions (`Presentazione PDF`) | Phase 13 (`seed_functions.ps1`) |
 | Department **groups** + user→group assignment | see below |
-| Knowledge Base contents | users re-upload |
+| Knowledge Base contents | users re-upload; folder-backed KBs via `sync_documenti.ps1` (Phase 10) |
 | Chats / history | not migrated (per user) |
 
 ### Make permissions & groups identical to the source
@@ -301,6 +301,17 @@ a new DB only; on an already-initialized DB change them in the UI instead.
     sync from Keycloak via an OIDC group claim. Until a group exists, users can
     still share collections with individual users.
 
+> **(optional) Folder → KB sync.** To pre-load a KB from a local folder (instead of
+> users uploading by hand), set two positionally paired lists in `.env`
+> (`SYNC_FOLDERS=path1;path2`, `SYNC_KB_NAMES=kb1;kb2`) and run
+> `pwsh -File .\scripts\sync_documenti.ps1` (creates the KB if missing; uploads via
+> docling + OCR; incremental re-runs via a per-KB state file in `.sync_state/`).
+> The KB is **not** attached to any model — users query it on demand with `#kbname`,
+> so set its access control under **Workspace → Knowledge → Access**. For a remote
+> share, point `SYNC_FOLDERS` at the mounted path (SMB/UNC) or run the script there.
+> On the server pass `-BaseUrl https://oi.rewave.local -ApiKey sk-<server-key>` like
+> the Phase 13 scripts.
+
 > **Chat Controls hidden from base users.** `USER_PERMISSIONS_CHAT_CONTROLS=false`
 > (+ `_SYSTEM_PROMPT`, `_PARAMS`, `_VALVES`) removes the per-chat **Controls** panel
 > (system prompt / advanced params / valves override) for non-admins. On an
@@ -553,6 +564,8 @@ docker compose down                  # stop (named volumes persist)
 - Prompt-preset, suggestion-card or Action-function changes: re-run
   `seed_prompts.ps1` / `seed_suggestions.ps1` / `seed_functions.ps1` (all
   idempotent — safe on every redeploy).
+- Folder-backed KBs: re-run `sync_documenti.ps1` (incremental) after the source
+  folder changes; schedule it (cron / Task Scheduler) to keep a KB up to date.
 - If the bundle outgrows Sonnet's context, switch the `claude-sonnet` mapping in
   `litellm-config.yaml` to an Opus 1M-context model, then `restart litellm`.
 ```

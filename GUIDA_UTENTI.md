@@ -173,6 +173,10 @@ WebUI) e l'assistente li consulta quando serve.
   > *Esempio:* `#normative-fiscali quali sono le scadenze IVA trimestrali?`
 - Una collezione può anche essere **condivisa con tutta l'azienda** (chiedi
   all'amministratore): resta a richiesta con `#`, ma diventa visibile a tutti.
+- Alcune collezioni possono essere **predisposte e tenute aggiornate
+  dall'amministratore** a partire da una cartella sul server (es. una collezione
+  `fatture`): le trovi già pronte: le usi con `#` come tutte le altre, senza
+  doverci caricare niente tu.
 
 ### Condividere una collezione
 

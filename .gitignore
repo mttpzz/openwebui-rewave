@@ -6,6 +6,9 @@ llm_wiki/*
 # Claude Code local settings
 .claude/settings.local.json
 
+# sync_documenti.ps1 incremental state (per-KB file_id/hash maps)
+.sync_state/
+
 # token folders and files
 token/
 

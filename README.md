@@ -34,6 +34,7 @@ What users get in the chat. Disabled / admin-only features are listed last.
 | `llm_wiki` full-context knowledge | ✅ active | core product; injected into the system prompt |
 | Documents in chat (upload) | ✅ active | docling extraction + Italian OCR |
 | Knowledge Bases / RAG (hybrid search) | ✅ active | user-created, shareable to groups |
+| Folder → KB sync | ✅ active | admin mirrors a local folder into a KB via `sync_documenti.ps1`; users query it with `#kbname` |
 | Prompt presets (`/commands`) | ✅ active | public; seeded via `seed_prompts.ps1` |
 | PDF presentations (`/presentazione`) | ✅ active | `esporta_pdf` filter renders the deck to PDF via Playwright; seeded via `seed_functions.ps1` |
 | Web search | ✅ active | DuckDuckGo + Playwright |
@@ -125,3 +126,25 @@ pwsh -File .\scripts\seed_functions.ps1
 Current: `esporta_pdf` — a global outlet filter that, after a `/presentazione`
 reply, renders the reveal.js slides to a branded landscape PDF (via the Playwright
 service, no extra deps) and replaces the message with a download link.
+
+## Folder → Knowledge Base sync
+
+Mirror local folders into Open WebUI Knowledge Bases so users can ask questions
+over a whole document set and search it by content. Configure two positionally
+paired lists in `.env` (`SYNC_FOLDERS=path1;path2`, `SYNC_KB_NAMES=kb1;kb2`) and run:
+
+```powershell
+pwsh -File .\scripts\sync_documenti.ps1            # sync all configured pairs
+pwsh -File .\scripts\sync_documenti.ps1 -WhatIf    # dry-run
+pwsh -File .\scripts\sync_documenti.ps1 -Only fatture   # one KB
+pwsh -File .\scripts\sync_documenti.ps1 -Full      # ignore state, re-evaluate all
+```
+
+It uploads each file (extensions in `SYNC_EXTENSIONS`, default PDF/Office/images;
+docling extraction + Italian OCR) to the KB via API, creating the KB if missing.
+Re-runs are incremental: a per-KB state file under `.sync_state/` (gitignored) maps
+each local file → `file_id` + SHA256, so unchanged files are skipped, changed files
+re-uploaded, and locally deleted files removed. The KBs are **not attached to any
+model** — users pull a KB into a chat on demand with `#kbname`, which keeps per-KB
+access control enforced (set it in **Workspace → Knowledge → Access**). For a remote
+share, point `SYNC_FOLDERS` at the mounted path (SMB/UNC) or run the script there.
