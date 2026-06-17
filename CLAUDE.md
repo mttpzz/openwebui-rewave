@@ -12,8 +12,9 @@ The whole product is configured through `docker-compose.yml` + `.env`. There is 
 
 Single Compose network (`openwebui-network`). Services:
 
-- **openwebui** — chat frontend. Talks to LLMs only through LiteLLM (`OPENAI_API_BASE_URL: http://litellm:4000/v1`); Ollama API disabled. Exposes a single model `rewave-ai` to users (`DEFAULT_MODELS`). Auth is SSO-only (login form + signup disabled, Keycloak required).
-- **litellm** (+ **litellm-db** postgres) — unified proxy for all model providers. Config in `litellm-config.yaml`. Maps friendly names (`claude-sonnet`, `llama3.1`) to real provider models, holds provider API keys, does cost-based routing, retries, and Langfuse logging. `llama3.1` (Ollama) routes to the **host** machine via `host.docker.internal:11434` (Ollama runs outside Docker) and is kept **admin-only** in Open WebUI.
+- **openwebui** — chat frontend. Talks to LLMs through LiteLLM (`OPENAI_API_BASE_URL: http://litellm:4000/v1`) **and** the RouteLLM router (a second OpenAI connection at `http://routellm:6060/v1`); Ollama API disabled. Exposes a single model `rewave-ai` to users (`DEFAULT_MODELS`); `rewave-ai`'s **base model is the RouteLLM router** (`router-bert-<threshold>`), so every chat is routed weak/strong per request. Background tasks (title / tag / follow-up generation) use a fixed **Task Model = `claude-haiku`** (Admin → Settings → Interface) so they don't go through the router or hit the strong model. Auth is SSO-only (login form + signup disabled, Keycloak required).
+- **litellm** (+ **litellm-db** postgres) — unified proxy for all model providers. Config in `litellm-config.yaml`. Maps friendly names to real provider models, holds provider API keys, retries, and Langfuse logging. Models: `claude-sonnet` (`anthropic/claude-sonnet-4-6`, **strong** tier) and `claude-haiku` (`anthropic/claude-haiku-4-5`, **weak** tier) — both carry `cache_control_injection_points` (wiki prompt caching) and `additional_drop_params: ["top_p"]` (RouteLLM always injects `top_p`, which Anthropic rejects together with `temperature`). Global `litellm_settings.drop_params: true` strips other unsupported params (e.g. `presence_penalty`/`frequency_penalty`). `general_settings.store_prompts_in_spend_logs: true` persists request/response in the spend-logs DB for debugging (privacy: stores chat content in litellm-db). An optional admin-only `gemma3-4b` (Ollama on the host via `host.docker.internal:11434`, outside Docker) may remain for testing but is **not** used for routing — a local CPU model can't prefill the full-context wiki fast enough (see **routellm**).
+- **routellm** — complexity router (LM-SYS RouteLLM, built from `routellm/Dockerfile`, OpenAI-compatible on `:6060`, internal only). For each request the local **`bert`** classifier scores the **last user message** and routes simple ones to the weak model (`claude-haiku`) and complex ones to the strong model (`claude-sonnet`), both reached back **through LiteLLM** (so caching + param-drops apply). The threshold is baked into the model id `router-bert-<threshold>` (higher → more to weak); recalibrate with `routellm.calibrate_threshold` (needs the `[eval]` extra). Routing on the *last user message* means the full-context wiki in the system prompt does not skew classification. The weak tier is **cloud Haiku, not local**, because a CPU Ollama model needs minutes to prefill the wiki and has no prompt caching — making local routing slower and pricier than Haiku. Reaches LiteLLM via `OPENAI_API_BASE`/`OPENAI_API_KEY` env (the LiteLLM master key). **Two routing traps** (both in DEPLOY.md Phase 16): (1) `router-bert-<threshold>` must be **Public** in Open WebUI — it's `rewave-ai`'s base model and OWUI resolves the base with the *user's* permissions (Private → non-admins get `model not found`); the router's targets `claude-sonnet`/`claude-haiku` stay Private (called server-side via the master key). (2) **Web Search must not be a Default Feature** on `rewave-ai`: with it (or any retrieved context / citations) active, OWUI wraps every message in a long `### Task: … using the provided context …` template, which becomes `messages[-1]` — so RouteLLM scores every query as complex and routes everything to Sonnet. Keep web search as an on-demand capability (per-chat toggle); citations are fine (passive). `#kb`/file queries likewise get the template → Sonnet (appropriate).
 - **keycloak** (+ **keycloak-db** postgres) — identity provider for SSO. Realm `openwebui-rewave`, client `openwebui`. Roles from `realm_access.roles` map to Open WebUI user/admin.
 - **n8n** (+ **n8n-db** postgres) — workflow automation (email ↔ chat). Runs for admin testing at `n8n.rewave.local`; the `send_email`/`mail_digest` chat tools are **admin-only** (not attached to `rewave-ai`). Reads mail accounts/topics from env.
 - **playwright** — headless browser backend for Open WebUI Web Search + web page loading (fallback when answer not in the wiki).
@@ -53,6 +54,15 @@ pwsh -File .\scripts\refresh_wiki.ps1 -SkipBundle
 
 If the bundle outgrows Sonnet's context, switch the `claude-sonnet` mapping in `litellm-config.yaml` to an Opus 1M-context model.
 
+### Removing the wiki from the model
+
+The wiki is **not required** — it just lives between the `=====BEGIN WIKI=====` / `=====END WIKI=====` markers in the `rewave-ai` system prompt. To run the assistant without it (e.g. before the wiki is ready, or to fall back to RAG + web search only), an admin clears that block. There is no remove script — it is a manual edit:
+
+- **Admin UI** (simplest): Open WebUI → **Admin Panel → Models → `rewave-ai` → System Prompt**. Delete everything from `=====BEGIN WIKI=====` to `=====END WIKI=====` (keep the rest of the prompt, including the 3-source instructions). Save. The change is live immediately — no restart.
+- Optionally leave the two empty markers in place; the next `refresh_wiki.ps1` run will refill them, so this is the cleanest way to re-enable the wiki later (run the maintenance loop again).
+
+Removing the wiki only affects the live model's system prompt; the `llm_wiki/` files and `_bundle.md` on disk are untouched and can be re-pushed any time.
+
 ## Documents, Knowledge Bases, prompt presets & functions
 
 Beyond the full-context wiki, Open WebUI also does conventional RAG for user content:
@@ -74,8 +84,10 @@ docker compose down                        # stop (volumes persist)
 ```
 
 - After editing `litellm-config.yaml` → restart `litellm`.
+- After editing `routellm/Dockerfile` (router type, weak/strong model, default threshold) → `docker compose up -d --build routellm`.
 - After editing `caddy/Caddyfile` → restart `caddy`.
 - Most `docker-compose.yml` env changes → `docker compose up -d` re-creates only changed containers.
+- Ollama model residency: how long a local model stays in host RAM after the last request is controlled by `keep_alive` (per-model in `litellm-config.yaml` under `litellm_params`, preferred) or the host `OLLAMA_KEEP_ALIVE` env. Raise it to skip the weight reload + system-prompt prefill on each cold start (slower the larger the wiki) on CPU-only hosts; lower it (or keep the `5m` default) under memory pressure. See DEPLOY.md Phase 15.
 
 ## Conventions
 

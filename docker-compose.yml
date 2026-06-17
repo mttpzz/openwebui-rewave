@@ -42,6 +42,25 @@ services:
       timeout: 10s
       retries: 3
 
+  # RouteLLM — routes each request to simple or complex model
+  # based on the last user message. Internal only, no host port.
+  routellm:
+    build: ./routellm
+    environment:
+      # Both strong & weak models are "openai/..." → resolved by the LiteLLM
+      # proxy. RouteLLM (via litellm) reads these for the OpenAI-compatible call.
+      OPENAI_API_BASE: http://litellm:4000/v1
+      OPENAI_API_KEY: ${LITELLM_MASTER_KEY}
+    volumes:
+      # Persist the bert router checkpoint so it isn't re-downloaded on recreate.
+      - routellm-hf-cache:/root/.cache/huggingface
+    depends_on:
+      - litellm
+    networks:
+      - openwebui-network
+    restart: unless-stopped
+
+
   # Playwright — for Web Search and Web Loader
   playwright:
     image: mcr.microsoft.com/playwright:v1.58.0-noble
@@ -327,6 +346,7 @@ networks:
     driver: bridge
 
 volumes:
+  routellm-hf-cache:
   litellm-db-data:
   openwebui-data:
   keycloak-db-data:

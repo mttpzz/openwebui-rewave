@@ -6,25 +6,53 @@ model_list:
     litellm_params:
       model: anthropic/claude-sonnet-4-6
       api_key: os.environ/ANTHROPIC_API_KEY
+      # RouteLLM always injects top_p=1.0 (non-None default in its request
+      # model), and Anthropic rejects temperature + top_p together. Drop top_p
+      # for this model so only temperature reaches Anthropic.
+      additional_drop_params: ["top_p"]
       cache_control_injection_points:
         - location: message
           role: system
 
-  # Ollama runs on the Windows host (outside Docker)
-  - model_name: llama3.1
+ # Claude Haiku 4.5 — cloud "weak" tier for RouteLLM. Cheap ($1/$5 per 1M) and
+ # cached, so the full-context wiki is fast/cheap here too (unlike a local CPU
+ # model). Same Anthropic temperature+top_p constraint as Sonnet → drop top_p.
+  - model_name: claude-haiku
     litellm_params:
-      model: ollama/llama3.1:8b
+      model: anthropic/claude-haiku-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      additional_drop_params: ["top_p"]
+      cache_control_injection_points:
+        - location: message
+          role: system
+
+  # Gemma 3 4B (unsloth Q8 GGUF) on the Ollama host — local "weak" tier
+  - model_name: gemma3-4b
+    litellm_params:
+      model: ollama_chat/hf.co/unsloth/gemma-3-4b-it-GGUF:Q8_0
       api_base: http://host.docker.internal:11434
+      # How long Ollama keeps the model resident in host RAM after the last
+      # request. Skips the weight reload + system-prompt prefill (slow on a
+      # CPU-only host; cost grows with the wiki size) for follow-ups, at the cost
+      # of holding the model's RAM while idle. Lower it (e.g. "5m") under memory
+      # pressure from the Docker stack; "-1" = never unload, "0" = unload now.
+      keep_alive: "5m"
 
 
 litellm_settings:
   # Automatic fallback if a provider does not respond
   num_retries: 3
   request_timeout: 300
+  # Drop request params a provider does not support (e.g. presence_penalty /
+  # frequency_penalty sent by the router/UI are rejected by Anthropic) instead
+  # of erroring. Safe: only unsupported params are stripped, per provider.
+  drop_params: true
 
   # Logging to Langfuse (if env vars are set)
   success_callback: ["langfuse"]
   failure_callback: ["langfuse"]
 
-router_settings:
-  routing_strategy: cost-based-routing     # or: latency-based-routing, least-busy
+# Persist request/response (prompt + completion) into the spend logs DB
+# (litellm-db) so they show up in the LiteLLM UI / spend logs for debugging.
+general_settings:
+  store_prompts_in_spend_logs: true

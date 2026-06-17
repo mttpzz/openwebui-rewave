@@ -232,7 +232,9 @@ With `ENABLE_LOGIN_FORM=false` + signup off, nobody can log in until SSO is set.
 ## Phase 9 — Create the `rewave-ai` model
 
 19. Admin Panel → Settings → Models → **+**:
-    - **Name**: `ReWave AI`, **Model ID**: `rewave-ai`, **Base Model**: `claude-sonnet`.
+    - **Name**: `ReWave AI`, **Model ID**: `rewave-ai`, **Base Model**: `claude-sonnet`
+      (if you set up request routing, **Phase 16** repoints this to the RouteLLM
+      router `router-bert-<threshold>`).
     - **Description**: `Assistente aziendale ReWave (wiki full-context + RAG documenti/KB)`.
 20. **System Prompt** — the 3-source instructions + the wiki markers (the bundle
     is injected between the markers in Phase 13):
@@ -250,11 +252,14 @@ With `ENABLE_LOGIN_FORM=false` + signup off, nobody can log in until SSO is set.
 23. **Default Features**: only `web_search` ON. **Builtin Tools**: enable only
     **Time & Calculation** (reliable math + date arithmetic); leave all others OFF.
 24. Test: new chat → `rewave-ai` → "ciao". Errors → `docker compose logs --tail 30 litellm` (check `ANTHROPIC_API_KEY`).
-    > **Model visibility.** Users only need `rewave-ai`. The LiteLLM base model
-    > `llama3.1` (Ollama, Phase 15) also appears in the model list — keep it
-    > **admin-only**: Admin Panel → Settings → Models → `llama3.1` → visibility
-    > **Private**. To expose it to everyone later, set it **Public** (see *Optional
-    > & disabled features*).
+    > **Model visibility** (see Phase 16 for the routing setup). `rewave-ai` is the
+    > only model users *pick*, but its **base model must be accessible to the user**
+    > — Open WebUI resolves the base model with the requesting user's permissions, so
+    > a Private base gives non-admins **`model not found`**. So:
+    > `rewave-ai` → **Public**; its base `router-bert-<threshold>` → **Public** too;
+    > the router's targets `claude-sonnet` / `claude-haiku` / `gemma3-4b` →
+    > **Private** (called by `routellm` via the master key, server-side — users never
+    > resolve them). Admin Panel → Settings → Models → *(model)* → visibility.
     > The built-in **Arena Model** entry is hidden via
     > `ENABLE_EVALUATION_ARENA_MODELS=false` (in `docker-compose.yml`). On an
     > already-initialized DB, disable it instead at Admin Panel → Settings →
@@ -500,14 +505,135 @@ LLM API to the whole LAN. Pick one of these instead:
       - "host.docker.internal:host-gateway"
     ```
 
-47. Uncomment the `llama3.1` block in `litellm-config.yaml`, then
-    `docker compose up -d litellm`.
+47. Add (or keep) the optional `gemma3-4b` block in `litellm-config.yaml`, then
+    `docker compose up -d litellm`. **Note:** this local model is **not** used by
+    request routing (Phase 16) — the weak tier is cloud `claude-haiku`, because a
+    CPU model can't prefill the full-context wiki fast enough. Keep `gemma3-4b`
+    only if you want a local model for admin testing; otherwise skip Phase 15.
+
+    > **Tuning — keep the model warm (CPU-only hosts).** When Ollama unloads an
+    > idle model (default after 5 min) the next request pays a full weight reload
+    > **and** re-runs the system-prompt prefill — slow on a CPU-only host, and the
+    > cost scales with the prompt size (the full-context wiki sits in the prompt,
+    > so the bigger the wiki the slower the cold start). Raise the keep-alive
+    > window either globally on the host (`sudo systemctl edit ollama` →
+    > `Environment="OLLAMA_KEEP_ALIVE=30m"`, then `sudo systemctl restart ollama`;
+    > on Windows: `setx OLLAMA_KEEP_ALIVE "30m"` then restart Ollama) or —
+    > preferred, version-controlled — per-model in `litellm-config.yaml`
+    > (`keep_alive: "30m"` under the model's `litellm_params`, then restart
+    > `litellm`). Trade-off: a resident model holds its RAM while idle (roughly the
+    > quant file size) — lower the window, or keep the `5m` default, if the host is
+    > memory-constrained. `-1` = never unload, `0` = unload immediately.
 
 48. Verify reachability from the container, and that the LAN is locked out:
     ```bash
     docker exec litellm python -c "import urllib.request; print(urllib.request.urlopen('http://host.docker.internal:11434').read())"   # → b'Ollama is running'
     # from another machine on the LAN: curl http://<server>:11434  → must time out / be refused
     ```
+
+---
+
+## Phase 16 — Request routing (RouteLLM weak/strong) — **standard**
+
+This is the **default** chat path: users only ever see `rewave-ai`, and each request
+is routed to a **weak** model (`claude-haiku`, simple queries) or a **strong** model
+(`claude-sonnet`, complex queries) by the `routellm` service. The weak tier is
+**cloud Haiku, not a local model** — a CPU Ollama model can't prefill the
+full-context wiki (~16k+ tokens, no caching) fast enough. See `routellm/README.md`.
+
+**Prereqs** (already in this repo): the `routellm` service comes up with the stack
+(Phase 5, built from `routellm/Dockerfile`); `litellm-config.yaml` defines
+`claude-sonnet` (strong) and `claude-haiku` (weak), each with
+`cache_control_injection_points` (wiki caching) and `additional_drop_params: ["top_p"]`,
+plus global `litellm_settings.drop_params: true`. (RouteLLM always injects
+`temperature`+`top_p`; Anthropic rejects them together, hence the top_p drop.)
+
+49. **Add the RouteLLM connection** — Admin Panel → Settings → Connections → OpenAI
+    API → **+**:
+    - **URL**: `http://routellm:6060/v1` · **Authentication**: None ·
+      **API Type**: Chat Completions
+    - **Model ID** (the `+` field): add **`router-bert-<threshold>`** manually
+      (RouteLLM does not serve `/v1/models`, so it can't be auto-discovered — a
+      404 there is normal). Use the threshold from step 50. Save.
+
+50. **Calibrate the threshold** — the cutoff is baked into the model id
+    (`router-bert-0.6` = `0.6`; **higher → more traffic to the weak model**). The
+    `[eval]` deps aren't in the runtime image, install them just for the run:
+    ```bash
+    docker compose exec routellm pip install "routellm[eval]==0.2.0"
+    docker compose exec routellm python -m routellm.calibrate_threshold \
+      --task calibrate --routers bert --strong-model-pct 0.5
+    # → prints e.g. "threshold = 0.4066". Lower --strong-model-pct → cheaper.
+    ```
+    The `bert` router is English-trained, so treat the calibrated value as a
+    starting point and tune empirically (current value: `router-bert-0.6`).
+
+51. **Repoint `rewave-ai`** (the model from Phase 9) — Admin → Settings → Models →
+    `rewave-ai` → **Base Model** = `router-bert-<threshold>` (now selectable from
+    step 49). **Leave the system prompt untouched** (wiki markers + 3-source rules);
+    `refresh_wiki.ps1` keeps patching it as before. Save.
+    > Changing the threshold later = a new model id → update it in **both** places:
+    > the connection's Model IDs (step 49) **and** `rewave-ai`'s Base Model.
+
+52. **Pin the Task Model** — Admin → Settings → Interface → **Task Model** (local
+    *and* external) = **`claude-haiku`**. Open WebUI fires background calls (title /
+    tag / follow-up generation) per chat; without this they'd route through
+    `rewave-ai` → the router → often the strong model. Pointing them at Haiku keeps
+    them cheap and off Sonnet. (Requires the LiteLLM connection enabled so `claude-haiku`
+    is selectable; refresh the connection if it doesn't appear.)
+
+53. **Visibility** — subtle but important:
+    - `rewave-ai` → **Public** (the only model users pick)
+    - `router-bert-<threshold>` → **Public too**. It is `rewave-ai`'s *base model*,
+      and Open WebUI resolves the base model **with the requesting user's
+      permissions**, not server-side. If the router is Private, a non-admin user
+      gets **`model not found`** when using `rewave-ai`. (Yes, the router then also
+      shows in the selector — acceptable; if a user picks it raw they just get
+      routing without the wiki.)
+    - `claude-sonnet` / `claude-haiku` / `gemma3-4b` → **Private**. These are the
+      router's *targets*: `routellm` calls them through LiteLLM with the **master
+      key** (server-side), so users never resolve them and don't need access.
+
+    Verify with a **non-admin** account: `rewave-ai` must answer (not "model not
+    found").
+
+54. ‼️ **Do NOT enable Web Search as a Default Feature on `rewave-ai`.** With web
+    search (or any retrieved context / citations) active, Open WebUI wraps **every**
+    user message in a long `### Task: Respond to the user query using the provided
+    context, incorporating inline citations …` template. RouteLLM classifies
+    `messages[-1]` — i.e. that template, not the real question — so it scores **every**
+    query as complex and routes **everything to Sonnet**, defeating the router.
+    - **Web Search**: leave it as a **capability** (so users can toggle it per-chat
+      via the Integrations menu) but **uncheck it under Default Features**. A query
+      with search toggled on then routes to Sonnet — which is appropriate (web-
+      augmented queries are "heavy").
+    - **Citations**: fine to leave **on** — they're passive (only format sources when
+      there's retrieved context: `#kb`, uploaded files, or toggled web search). They
+      don't wrap plain chat, so normal queries still route to Haiku.
+    - Same logic for `#kb` / uploaded-file queries: they get the context template →
+      Sonnet (appropriate for document Q&A).
+
+55. **Verify** — new chat on `rewave-ai`:
+    - a trivial prompt ("salutami") → answered by `claude-haiku`
+    - a complex one (multi-step analysis / comparison) → `claude-sonnet`
+
+    Check which model served a request from inside the stack (LiteLLM has no host
+    port):
+    ```bash
+    docker compose exec -T litellm python - <<'PY'
+    import os, json, urllib.request
+    key=os.environ["LITELLM_MASTER_KEY"]
+    d=json.loads(urllib.request.urlopen(urllib.request.Request(
+        "http://localhost:4000/spend/logs",
+        headers={"Authorization":f"Bearer {key}"})).read())
+    for r in (d if isinstance(d,list) else d.get("data",[]))[-10:]:
+        print(r.get("startTime","")[-8:], r.get("model"))
+    PY
+    ```
+    `general_settings.store_prompts_in_spend_logs: true` (in `litellm-config.yaml`)
+    also records the request/response content in those logs for debugging — note it
+    persists chat content in litellm-db (privacy); set it back to `false` if you only
+    needed it while tuning.
 
 ---
 

@@ -10,8 +10,9 @@ There is no application code to build: "deploying" means `docker compose up`.
 
 Single Compose network (`openwebui-network`). Services:
 
-- **openwebui** — chat frontend. Talks to LLMs only through LiteLLM. Exposes a single model `rewave-ai`. Auth is SSO-only (Keycloak).
-- **litellm** (+ **litellm-db**) — unified proxy for all providers. Config in `litellm-config.yaml`. Holds API keys, cost-based routing, retries, Langfuse logging. Exposes `claude-sonnet` (active, base model of `rewave-ai`) and `llama3.1` (local Ollama, admin-only, optional). Ollama routes to the host via `host.docker.internal:11434`.
+- **openwebui** — chat frontend. Talks to LLMs through LiteLLM and the RouteLLM router. Exposes a single model `rewave-ai` (whose base model is the router). Auth is SSO-only (Keycloak).
+- **litellm** (+ **litellm-db**) — unified proxy for all providers. Config in `litellm-config.yaml`. Holds API keys, retries, Langfuse logging. Exposes `claude-sonnet` (strong) and `claude-haiku` (weak) — the two tiers RouteLLM picks between — plus an optional admin-only local `gemma3-4b` (Ollama on the host via `host.docker.internal:11434`, not used for routing).
+- **routellm** — per-request complexity router (LM-SYS RouteLLM). `rewave-ai`'s base model; sends simple queries to `claude-haiku` and complex ones to `claude-sonnet`, both via LiteLLM. See `routellm/README.md`.
 - **keycloak** (+ **keycloak-db**) — SSO identity provider. Realm `openwebui-rewave`, client `openwebui`.
 - **n8n** (+ **n8n-db**) — workflow automation (email ↔ chat). Runs by default; **admins** reach it at `n8n.rewave.local` (own login) to build/test workflows. The n8n-backed chat tools (`send_email`, `mail_digest`) are **not exposed to base users**.
 - **playwright** — headless browser for Web Search / web loading.
@@ -30,7 +31,7 @@ What users get in the chat. Disabled / admin-only features are listed last.
 
 | Feature | Status | Notes |
 |---|---|---|
-| Assistant `rewave-ai` (Claude Sonnet) | ✅ active | the single model exposed to users |
+| Assistant `rewave-ai` (routed Haiku/Sonnet) | ✅ active | the single model exposed to users; RouteLLM picks weak (Haiku) or strong (Sonnet) per request |
 | `llm_wiki` full-context knowledge | ✅ active | core product; injected into the system prompt |
 | Documents in chat (upload) | ✅ active | docling extraction + Italian OCR |
 | Knowledge Bases / RAG (hybrid search) | ✅ active | user-created, shareable to groups |
@@ -42,7 +43,10 @@ What users get in the chat. Disabled / admin-only features are listed last.
 | Calculations & dates | ✅ active | `Time & Calculation` builtin tool — reliable math / date arithmetic |
 | Citations / sources | ✅ active | shown for wiki / web / documents |
 | SSO login (Keycloak) | ✅ active | only authentication method |
-| `llama3.1` local model | 🔒 admin-only | needs Ollama on the host (optional) |
+| Request routing (RouteLLM) | ✅ active | weak/strong per request; threshold in the `router-bert-<n>` model id. **Web Search must stay off as a Default Feature** or every query gets wrapped in a context template and routes to Sonnet (see DEPLOY Phase 16) |
+| `router-bert-<n>` (router) | Public | `rewave-ai`'s base model — must be Public so non-admins can resolve it |
+| `claude-sonnet` / `claude-haiku` | 🔒 admin-only | router targets; called server-side via the master key, kept Private |
+| `gemma3-4b` local model | 🔒 admin-only | needs Ollama on the host (optional; not used for routing) |
 | n8n workflow automation | 🔒 admin-only | admin builds/tests workflows at `n8n.rewave.local` |
 | n8n email tools (`send_email`, `mail_digest`) | 🔒 admin-only | admin enables them per chat (tools selector); not exposed to base users |
 
@@ -69,6 +73,7 @@ docker compose down                       # stop (volumes persist)
 ```
 
 - After editing `litellm-config.yaml` → `docker compose restart litellm`
+- After editing `routellm/Dockerfile` → `docker compose up -d --build routellm`
 - After editing `caddy/Caddyfile` → `docker compose restart caddy`
 - Env changes in `docker-compose.yml` → `docker compose up -d` re-creates only changed containers
 
