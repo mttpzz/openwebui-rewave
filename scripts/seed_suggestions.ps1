@@ -4,7 +4,7 @@
 # DEFAULT_PROMPT_SUGGESTIONS in docker-compose.yml only seeds a FRESH DB; on an
 # already-initialised DB it is ignored, so use this script to overwrite them.
 #
-# Required setup (same as refresh_wiki.ps1 / seed_prompts.ps1):
+# Required setup (same as refresh_wiki.ps1):
 #   - OPENWEBUI_URL + OPENWEBUI_API_KEY as env vars, or in a .env file in the
 #     project root (parent of scripts/). The API key must belong to an admin.
 #
@@ -45,9 +45,6 @@ $headers = @{ "Authorization" = "Bearer $ApiKey"; "Content-Type" = "application/
 $suggestions = @(
     @{ title = @("Cosa sai fare?", "scopri le funzioni");
        content = "Cosa sai fare? Elenca in modo sintetico come puoi aiutarmi nel lavoro quotidiano in Rewave." }
-
-    @{ title = @("Genera presentazione", "esempio presentazione");
-       content = "/presentazione Genera una presentazione di esempio in 4 slide che illustra i servizi di Rewave Srl." }
 )
 
 $body = @{ suggestions = $suggestions } | ConvertTo-Json -Depth 6

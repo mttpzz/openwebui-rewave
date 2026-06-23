@@ -1,6 +1,6 @@
 """
 title: Presentazione PDF
-description: After a /presentazione reply, auto-renders the reveal.js slides to a PDF and appends a download link to the message (no button click).
+description: When any assistant reply contains a reveal.js presentation, auto-renders the slides to a PDF and appends a download link to the message (no button click).
 author: rewave
 version: 0.2.0
 required_open_webui_version: 0.9.0
@@ -8,10 +8,10 @@ required_open_webui_version: 0.9.0
 
 # Open WebUI Filter function (global outlet).
 # Runs automatically after every assistant reply. When the message contains a
-# reveal.js presentation (the ```html block produced by the /presentazione prompt
-# preset), it re-lays each <section> as a landscape print page, renders it to PDF
-# via the shared Playwright server (ws://playwright:3000), stores the file, and
-# appends a "Scarica PDF" link to the message — visible immediately, no click.
+# reveal.js presentation (any <div class="reveal"> block), it re-lays each
+# <section> as a landscape print page, renders it to PDF via the shared Playwright
+# server (ws://playwright:3000), stores the file, and appends a "Scarica PDF" link
+# to the message — visible immediately, no click.
 #
 # Non-presentation messages are a cheap no-op (regex miss → return unchanged).
 # No extra pip requirements: the openwebui image already ships playwright==1.58.0,

@@ -8,7 +8,7 @@
 # missing functions, refreshes the code of existing ones, and ensures is_active +
 # is_global are set. New code is loaded live by Open WebUI; no restart required.
 #
-# Required setup (same as refresh_wiki.ps1 / seed_prompts.ps1):
+# Required setup (same as refresh_wiki.ps1):
 #   - OPENWEBUI_URL + OPENWEBUI_API_KEY as env vars, or in a .env file in the
 #     project root (parent of scripts/). The API key must belong to an admin.
 #
@@ -49,7 +49,7 @@ $headers = @{ "Authorization" = "Bearer $ApiKey"; "Content-Type" = "application/
 # stem; the source is read from functions/<id>.py. Add more entries as needed.
 $functions = @(
     @{ id = "esporta_pdf"; name = "Presentazione PDF"; file = "functions\esporta_pdf.py";
-       description = "Filter: dopo una /presentazione genera il PDF e accoda il link di download al messaggio." }
+       description = "Filter: quando una risposta contiene una presentazione reveal.js, genera il PDF e accoda il link di download al messaggio." }
 )
 
 # ── Fetch existing functions → id→{active,global} map ───────────────

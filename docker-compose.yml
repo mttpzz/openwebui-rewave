@@ -128,10 +128,9 @@ services:
       # New-chat prompt suggestion cards (PersistentConfig: seeds a fresh DB only)
       DEFAULT_PROMPT_SUGGESTIONS: >
         [
-          {"title": ["Cosa sai fare?", "scopri le funzioni"], "content": "Cosa sai fare? Elenca in modo sintetico come puoi aiutarmi nel lavoro quotidiano in Rewave."},
-          {"title": ["Genera presentazione", "esempio presentazione"], "content": "/presentazione Genera una presentazione di esempio in 4 slide che illustra i servizi di Rewave Srl."}
+          {"title": ["Cosa sai fare?", "scopri le funzioni"], "content": "Cosa sai fare? Elenca in modo sintetico come puoi aiutarmi nel lavoro quotidiano in Rewave."}
         ]
-
+      
       # Web Search — fallback when info not in wiki
       ENABLE_RAG_WEB_SEARCH: "true"
       ENABLE_WEB_SEARCH: "true"
@@ -261,58 +260,6 @@ services:
     networks:
       - openwebui-network
 
-  # n8n — workflow automation
-  n8n-db:
-    image: postgres:16
-    container_name: n8n-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: n8n
-      POSTGRES_USER: n8n
-      POSTGRES_PASSWORD: ${N8N_DB_PASSWORD}
-    volumes:
-      - n8n-db-data:/var/lib/postgresql/data
-    networks:
-      - openwebui-network
-
-  n8n:
-    image: n8nio/n8n:2.25.7
-    container_name: n8n
-    restart: unless-stopped
-    environment:
-      DB_TYPE: postgresdb
-      DB_POSTGRESDB_HOST: n8n-db
-      DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: n8n
-      DB_POSTGRESDB_USER: n8n
-      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD}
-      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
-      N8N_HOST: n8n.rewave.local
-      N8N_PROTOCOL: https
-      N8N_PORT: 5678
-      WEBHOOK_URL: https://n8n.rewave.local/
-      N8N_PROXY_HOPS: 1
-      N8N_SECURE_COOKIE: "true"
-      GENERIC_TIMEZONE: Europe/Rome
-      TZ: Europe/Rome
-      # trust Caddy CA for calls to other internal services
-      NODE_EXTRA_CA_CERTS: /opt/custom-certs/caddy-root.crt
-      GMAIL_ACCOUNTS: ${GMAIL_ACCOUNTS}
-      NODE_FUNCTION_ALLOW_EXTERNAL: "imap,mailparser"
-      # kept false on purpose: mail-digest Code node reads GMAIL_ACCOUNTS from env;
-      # blocking would force secrets into workflow JSON (plaintext in DB).
-      # Single-editor instance -> accepted risk. Revisit if more n8n users are added.
-      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
-      MAIL_TOPICS: ${MAIL_TOPICS}
-    volumes:
-      - n8n-data:/home/node/.n8n
-      - ./caddy/caddy-root.crt:/opt/custom-certs/caddy-root.crt:ro
-    depends_on:
-      - n8n-db
-    networks:
-      - openwebui-network
-
-
   # Reverse proxy TLS
   caddy:
     image: caddy:2.11.4-alpine
@@ -331,12 +278,10 @@ services:
           - oi.rewave.local
           - litellm.rewave.local
           - keycloak.rewave.local
-          - n8n.rewave.local
     depends_on:
       - openwebui
       - litellm
       - keycloak
-      - n8n
 
 
 networks:
@@ -352,6 +297,4 @@ volumes:
   keycloak-db-data:
   caddy-data:
   caddy-config:
-  n8n-data:
-  n8n-db-data:
   openwebui-vector-db-data:

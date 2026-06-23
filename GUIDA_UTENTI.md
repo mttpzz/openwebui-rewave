@@ -15,7 +15,7 @@ web e analizzare immagini.
 **Indice**
 
 1. [Per iniziare](#1-per-iniziare)
-2. [Comandi rapidi (/)](#2-comandi-rapidi-)
+2. [Presentazioni in PDF](#2-presentazioni-in-pdf)
 3. [Cosa sa l'assistente — la conoscenza aziendale](#3-cosa-sa-lassistente--la-conoscenza-aziendale)
 4. [Documenti in chat (al volo)](#4-documenti-in-chat-al-volo)
 5. [Conoscenza / Knowledge Base (collezioni)](#5-conoscenza--knowledge-base-collezioni)
@@ -48,47 +48,25 @@ pulite = risposte migliori.
 
 ---
 
-## 2. Comandi rapidi (/)
+## 2. Presentazioni in PDF
 
-Per i compiti ripetitivi ci sono **comandi pronti**: scrivi `/` nel campo del
-messaggio e scegli dal menu. Il comando inserisce un testo già impostato, che poi
-completi con il tuo caso specifico.
+L'assistente può **generare una presentazione** con slide e **scaricarla subito in PDF**,
+senza passaggi aggiuntivi. Basta chiederlo in linguaggio naturale.
 
-**Comandi disponibili:**
+**Come funziona:**
+1. Scrivi la tua richiesta in chat — descrivi l'argomento e il numero di slide.
+2. L'assistente costruisce le slide in formato interattivo.
+3. Dopo qualche secondo compare automaticamente il link
+   **📄 Scarica la presentazione (PDF)** — cliccalo per scaricare il file pronto
+   da presentare o inviare.
 
-| Comando | Cosa fa |
-|---|---|
-| `/riassumi` | Riassume un documento o testo in punti chiave |
-| `/estrai-fattura` | Estrae i dati di una fattura in tabella |
-| `/traduci-en` | Traduce un testo in inglese |
-| `/normativa` | Spiega in pratica una normativa e gli adempimenti |
-| `/presentazione` | Crea una presentazione in **PDF** dai dati che fornisci |
-| `/traduci-it` | Traduce un testo (in qualsiasi lingua) in italiano |
+Non c'è nessun comando speciale da digitare: scrivi la richiesta come faresti
+normalmente. Più dati concreti fornisci (numeri, titoli di sezione, argomenti per
+slide), più ordinate e utili vengono le slide.
 
-**Come si usa:**
-1. In chat scrivi **`/`** (compare il menu dei comandi).
-2. Scegli il comando (o continua a digitarne il nome).
-3. Completa la richiesta: per `/normativa`, `/traduci-it`, `/traduci-en`
-   scrivi o incolli il testo sotto il comando; per `/riassumi` ed `/estrai-fattura`
-   di solito **alleghi prima il documento** (vedi sezione 4) o incolli il testo.
-4. Invio.
-
-> *Esempio:* allega una fattura → scrivi `/estrai-fattura` → Invio.
-
-**Presentazioni in PDF (`/presentazione`):** scrivi `/presentazione`, vai a capo e
-descrivi i contenuti (un argomento per riga, con i dati). L'assistente costruisce le
-slide e, dopo qualche secondo, nella risposta compare il link
-**📄 Scarica la presentazione (PDF)**: cliccalo per scaricare il file pronto da
-presentare o inviare. Più dati chiari fornisci (numeri, titoli di sezione), più
-ordinate vengono le slide.
-
-> *Esempio:*
-> ```
-> /presentazione
-> Andamento vendite Q2: fatturato 1,2 M€ (+12%), top cliente Acme.
-> Produzione: nuovo impianto di fustellatura attivo da maggio, scarti -8%.
-> Obiettivi H2: aumentare la resa, ridurre i tempi di consegna.
-> ```
+> *Esempi di richiesta:*
+> - "Genera una presentazione in 4 slide sull'andamento delle vendite Q2: fatturato 1,2 M€ (+12%), top cliente Acme, nuovo impianto fustellatura attivo da maggio, obiettivi H2."
+> - "Crea una presentazione di 5 slide sui prodotti Rewave per un nuovo cliente."
 
 ---
 

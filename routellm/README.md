@@ -65,7 +65,7 @@ wiki is near-free on the weak path too — making routing actually worthwhile.
 ## Open WebUI wiring gotchas
 
 Two non-obvious things that break routing if you get them wrong (full steps in
-`DEPLOY.md` Phase 16):
+`DEPLOY.md` Phase 9 + Phase 10):
 
 1. **The router model must be Public.** `router-bert-<threshold>` is `rewave-ai`'s
    *base model*, and Open WebUI resolves the base with the **requesting user's**
