@@ -92,6 +92,28 @@ The assistant draws on company knowledge in three complementary ways:
 
 End-user guide (Italian): **[GUIDA_UTENTI.md](GUIDA_UTENTI.md)**.
 
+## Model bootstrap
+
+On a fresh instance the `rewave-ai` model is created via the API (no Admin-UI
+clicks) — idempotent create-or-update, run once per instance:
+
+```powershell
+pwsh -File .\scripts\seed_model.ps1
+# after recalibrating the router threshold:
+pwsh -File .\scripts\seed_model.ps1 -RouterModelId "router-bert-0.45"
+```
+
+It sets up: the **RouteLLM connection** (`http://routellm:6060/v1`, auth=none, with a
+manual `model_ids: [router-bert-<threshold>]` since RouteLLM serves no `/v1/models`),
+the **`rewave-ai` model** (base = the router, system prompt with the 3-source rules +
+empty wiki markers, params, capabilities, Default Features off — web-search-as-default
+stays off so routing isn't defeated, plus the `esporta_pdf` action), **visibility**
+(`rewave-ai` + router Public; `claude-sonnet`/`claude-haiku`/`gemma3-4b` Private), and
+the **Task Model = `claude-haiku`** (chat titles, tags, follow-ups → cheap model). The
+system-prompt text lives in the script (`$systemPrompt`) as its source of truth. The
+one manual prerequisite: enable the API Key feature and mint an admin key. Then push
+the wiki bundle into the markers with `refresh_wiki.ps1` (below).
+
 ## Wiki maintenance loop
 
 When wiki content changes, push it to the live chat model:
