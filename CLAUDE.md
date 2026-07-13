@@ -74,6 +74,15 @@ Beyond the full-context wiki, Open WebUI also does conventional RAG for user con
 - Full from-scratch model setup: Phase 10 (Admin UI) → `refresh_wiki.ps1` → `seed_suggestions.ps1` → `seed_functions.ps1`.
 - Full Ubuntu procedure: `DEPLOY.md`. End-user guide (Italian): `GUIDA_UTENTI.md`.
 
+## Local file access (optional, currently OFF)
+
+Beyond in-chat upload and Knowledge Bases, the assistant can be given access to a **shared host folder** (a company directory) so it can browse, read, and answer about the files in it. Two approaches were built and evaluated; **neither is enabled now** — both were removed after testing. The `LOCAL_FILES_PATH` var in `.env` (host folder to expose) is the shared input to either; it is unused until one is re-enabled. Docling stays regardless (it serves KB/RAG).
+
+- **Open Terminal** (`ghcr.io/open-webui/open-terminal`) — gives the model a **real shell + sidebar file browser**. It can read **and write/compute** on files: modern Office (openpyxl/python-docx/python-pptx), PDF (pypdf), legacy Office (libreoffice), scans/images (tesseract OCR-ita) — all baked into a custom image. Connected via Admin → Integrations → Open Terminal; needs the model's `terminal` capability ON. **Most powerful, but the model has arbitrary code execution on real files**, so it must be hardened (non-root, isolated `internal` network with no DB/internet reach, `cap_drop`, resource limits). System-prompt guidance: extract text via the shell, reason over it with the LLM, but do exact math (totals/counts) with a script, not LLM arithmetic. Downsides: the file/terminal panel and the per-chat terminal selector (☁) cannot be hidden or auto-attached per role (no native setting).
+- **mcpo** (MCPO proxy + `@modelcontextprotocol/server-filesystem`) — exposes a **fixed, bounded set of file tools** (list/read/write/search) as an OWUI **Tool Server** (URL must be `http://mcpo:8000/filesystem` — tools live under the server prefix). Binary docs (PDF/Office) need a companion OWUI Tool (`read_document`) that pipes the file to **docling** for extraction. **Safer and deterministic, no shell, no UI panel**, but weak at *writing/editing* Office files.
+
+Rule of thumb: **read + Q&A → mcpo** (bounded, safe); **the model must also edit/compute on files → Open Terminal** (powerful, needs hardening). Shared gotchas for either (tool calling through RouteLLM): RouteLLM 0.2.0 rejects nested tool schemas → patched in `routellm/Dockerfile`; `rewave-ai` must keep `function_calling=native` (saving the model in Workspace UI reverts it and the system prompt — reload the page first); and the system prompt must tell the model it *has* file access or it refuses.
+
 ## Common operations
 
 ```powershell

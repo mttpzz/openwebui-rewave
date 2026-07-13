@@ -1,5 +1,5 @@
 """
-title: Presentazione PDF
+title: Presentation PDF
 description: When any assistant reply contains a reveal.js presentation, auto-renders the slides to a PDF and appends a download link to the message (no button click).
 author: rewave
 version: 0.2.0
@@ -10,7 +10,7 @@ required_open_webui_version: 0.9.0
 # Runs automatically after every assistant reply. When the message contains a
 # reveal.js presentation (any <div class="reveal"> block), it re-lays each
 # <section> as a landscape print page, renders it to PDF via the shared Playwright
-# server (ws://playwright:3000), stores the file, and appends a "Scarica PDF" link
+# server (ws://playwright:3000), stores the file, and appends a download link
 # to the message — visible immediately, no click.
 #
 # Non-presentation messages are a cheap no-op (regex miss → return unchanged).
@@ -29,13 +29,13 @@ from open_webui.storage.provider import Storage
 
 # Idempotency guards: the appended block is recognised by these literals, so the
 # outlet never processes the same message twice (no hidden marker that would show
-# up in the rendered chat).
+# up in the rendered chat). Strings stay Italian — they are shown to end users.
 _LINK_LABEL = "Scarica la presentazione (PDF)"
 _ERR_LABEL = "PDF non generato"
 
 
 # ── Print template ──────────────────────────────────────────────────
-# Sober palette suited to a cartotecnica: navy headings, kraft accent rule.
+# Sober palette suited to a paper-converting company: navy headings, kraft accent rule.
 PRINT_CSS = """
 @page { size: A4 landscape; margin: 0; }
 * { box-sizing: border-box; }
@@ -129,7 +129,7 @@ def _build_print_html(sections: list[str]) -> str:
 
 
 def _title(sections: list[str]) -> str:
-    """Plain-text title from the first slide heading, fallback 'Presentazione'."""
+    """Plain-text title from the first slide heading, fallback 'Presentazione' (Italian, user-facing)."""
     if sections:
         h = re.search(r'<h[1-3][^>]*>(.*?)</h[1-3]>', sections[0], re.DOTALL | re.IGNORECASE)
         if h:

@@ -16,6 +16,22 @@ FROM python:3.11-slim
 
 RUN pip install --no-cache-dir "routellm[serve]==0.2.0"
 
+# RouteLLM 0.2.0 declares tools as List[Dict[str, Union[str, int, float]]],
+# which rejects nested dicts in OpenAI tool definitions (parameters, properties,
+# etc.). Patch it to List[Any] so tool calls from Open WebUI pass through.
+RUN python3 - <<'EOF'
+import os, routellm
+path = os.path.join(os.path.dirname(routellm.__file__), 'openai_server.py')
+content = open(path).read()
+content = 'from typing import Any\n' + content
+content = content.replace(
+    'Optional[List[Dict[str, Union[str, int, float]]]]',
+    'Optional[List[Any]]'
+)
+open(path, 'w').write(content)
+print('Patch applied:', path)
+EOF
+
 EXPOSE 6060
 
 # Routing uses only the last user message (routellm/controller.py:
