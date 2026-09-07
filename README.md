@@ -385,3 +385,7 @@ Admins can see and manage all public presets.
   `POST /api/v1/prompts/create` API if you want to script it.
 - Deleting a preset via UI calls `DELETE /api/v1/prompts/id/{command}/delete` — there
   is no bulk-delete; remove them one at a time.
+
+## License
+
+Source-available under the [PolyForm Strict License 1.0.0](LICENSE) — viewing and personal/noncommercial evaluation only. Any other use requires permission from Rewave Srl.
