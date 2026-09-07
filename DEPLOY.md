@@ -313,11 +313,11 @@ intercept `.local` over mDNS, rename the domain to a non-reserved suffix
    `systemd-resolved` (which holds `127.0.0.53:53`). Create
    `/etc/dnsmasq.d/rewave.conf` (substitute the server IP and the gateway):
    ```
-   listen-address=192.168.1.115
+   listen-address=<SERVER_IP>
    bind-interfaces
    no-resolv
-   server=192.168.1.253
-   address=/rewave.local/192.168.1.115
+   server=<GATEWAY_IP>
+   address=/rewave.local/<SERVER_IP>
    ```
    - `address=/rewave.local/...` → wildcard: any `*.rewave.local` → the server.
    - `no-resolv` + `server=<gateway>` → forward everything else upstream (avoids a
@@ -330,11 +330,11 @@ intercept `.local` over mDNS, rename the domain to a non-reserved suffix
    If dnsmasq fails to bind port 53, set `DNSStubListener=no` in
    `/etc/systemd/resolved.conf`, then `sudo systemctl restart systemd-resolved`.
    d. On the **router**, set the DHCP primary DNS to the server IP
-   (`192.168.1.115`). Clients pick it up on lease renewal (`ipconfig /renew` on
+   (<SERVER_IP>). Clients pick it up on lease renewal (`ipconfig /renew` on
    Windows). Verify locally on the server and from a client:
    ```bash
-   nslookup oi.rewave.local 192.168.1.115   # → server IP (wildcard works)
-   nslookup google.com 192.168.1.115        # → resolves (upstream forward works)
+   nslookup oi.rewave.local <SERVER_IP>   # → server IP (wildcard works)
+   nslookup google.com <SERVER_IP>        # → resolves (upstream forward works)
    ```
    ```
    nslookup oi.rewave.local                 # from a Windows client → server IP
